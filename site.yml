@@ -1,0 +1,59 @@
+---
+- name: Configure devbox
+  hosts: devboxes
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install useful packages
+      ansible.builtin.apt:
+        name:
+          - htop
+          - jq
+          - tree
+        state: present
+
+    - name: Create appuser
+      ansible.builtin.user:
+        name: appuser
+        shell: /bin/bash
+        create_home: true
+        state: present
+
+    - name: Create /opt/myapp directory
+      ansible.builtin.file:
+        path: /opt/myapp
+        state: directory
+        owner: appuser
+        group: appuser
+        mode: "0755"
+
+    - name: Render config from template
+      ansible.builtin.template:
+        src: templates/config.yml.j2
+        dest: /opt/myapp/config.yml
+        owner: appuser
+        group: appuser
+        mode: "0644"
+      notify: Restart nginx
+
+    - name: Install nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: Ensure nginx is running and enabled
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Restart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted

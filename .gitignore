@@ -1,0 +1,22 @@
+# Ansible
+*.retry
+.ansible/
+.vault_pass
+.vault_password
+
+# Real inventory and any host-specific vars (ship .example versions instead)
+inventory.ini
+host_vars/
+group_vars/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/

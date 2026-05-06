@@ -1,0 +1,10 @@
+# Copy this file to inventory.ini and edit for your environment.
+# inventory.ini is gitignored to keep host details out of source control.
+
+[devboxes]
+# Replace with your target host. Can be an IP, hostname, or SSH config alias.
+# devbox
+
+[devboxes:vars]
+ansible_user=ubuntu
+ansible_python_interpreter=/usr/bin/python3
