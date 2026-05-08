@@ -45,8 +45,7 @@ ansible-playbook site.yml           # real run
 ```
 
 `site.yml` installs packages, creates a user, drops a templated config file,
-and ensures nginx is running. Re-running on an unchanged host does nothing
-— that's the idempotency.
+and ensures nginx is running. Re-running on an unchanged host does nothing (idempotent).
 
 The `--check` dry run may show errors. Some tasks depend on earlier ones
 (e.g. setting ownership on a directory needs the user from the previous
