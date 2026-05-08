@@ -1,0 +1,63 @@
+---
+- name: Deploy flaskapp container
+  hosts: appservers
+  become: true
+
+  vars:
+    image_repo: "ghcr.io/prsmalley/flaskapp-docker-practice"
+    image_tag: "latest"
+    container_name: "flaskapp"
+    app_port: 5000
+
+  tasks:
+    - name: Verify Docker is available
+      ansible.builtin.command: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: docker_check.rc != 0
+
+    - name: Log in to GHCR
+      community.docker.docker_login:
+        registry_url: ghcr.io
+        username: "{{ lookup('env', 'GITHUB_ACTOR', default='prsmalley') }}"
+        password: "{{ ghcr_token }}"
+
+    - name: Pull image from GHCR
+      community.docker.docker_image:
+        name: "{{ image_repo }}:{{ image_tag }}"
+        source: pull
+        force_source: true
+
+    - name: Stop and remove existing container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent
+
+    - name: Run new container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image_repo }}:{{ image_tag }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ app_port }}:5000"
+        env:
+          FLASK_HOST: "0.0.0.0"
+
+    - name: Wait for /health to be reachable
+      ansible.builtin.uri:
+        url: "http://localhost:{{ app_port }}/health"
+        status_code: 200
+      register: health_check
+      retries: 10
+      delay: 2
+      until: health_check.status == 200
+
+    - name: Get deployed container info
+      community.docker.docker_container_info:
+        name: "{{ container_name }}"
+      register: container_info
+
+    - name: Show deployed image SHA
+      ansible.builtin.debug:
+        msg: "Deployed image: {{ container_info.container.Image }}"
