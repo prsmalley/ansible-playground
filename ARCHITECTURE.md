@@ -10,6 +10,20 @@ A two-repo CI/CD setup that goes from a code push to a running container.
   (this repo) — the deploy. Host config playbook, deploy playbook, deploy
   workflow.
 
+## Scope
+
+The deploy pipeline targets the single-container version of the Flask app
+in `flaskapp-docker-practice/flaskapp/`. The `compose-app/` directory in
+that repo demonstrates Docker Compose patterns (service discovery, named
+volumes, `depends_on` semantics) but isn't published to GHCR or deployed.
+The Compose stack here is a learning artifact, not a production target.
+
+This pipeline could be extended either by deploying compose-app as a
+multi-container stack via Ansible (run `docker compose up` on the host)
+or by translating the stack to Kubernetes manifests and deploying via
+ArgoCD/Flux. Both are listed in the future-work section below.
+
+
 ## Why two repos
 
 Three reasons:
@@ -93,6 +107,10 @@ ansible-playground
   with short-lived tokens.
 - **Observability.** Logs to a log aggregator, Prometheus metrics,
   alerting on health-check and deploy failures.
+- **Multi-service deploy.** This pipeline deploys a single container.
+  Multi-service workloads (the Compose stack with Redis is the example
+  here) would be deployed differently: either docker-compose-on-host via
+  an extended Ansible playbook, or Kubernetes manifests
 
 ### Branch protection
 
