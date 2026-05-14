@@ -1,0 +1,39 @@
+---
+- name: Bootstrap k3s on AWS EC2
+  hosts: appservers
+  become: true
+
+  tasks:
+    - name: Install k3s server
+      ansible.builtin.shell:
+        cmd: |
+          curl -sfL https://get.k3s.io | sh -s - \
+            --write-kubeconfig-mode 644 \
+            --tls-san {{ ansible_host }}
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for k3s node to report Ready
+      ansible.builtin.command:
+        cmd: k3s kubectl get nodes -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}'
+      register: k3s_ready
+      retries: 12
+      delay: 5
+      until: k3s_ready.stdout == "True"
+      changed_when: false
+
+    - name: Ensure .kube directory exists for ubuntu user
+      ansible.builtin.file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Copy kubeconfig to ubuntu user's home
+      ansible.builtin.copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
