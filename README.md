@@ -1,10 +1,19 @@
 # ansible-playground
 
-Two Ansible playbooks: one configures an Ubuntu host, the other deploys a
-Flask container pulled from GHCR. Includes a GitHub Actions deploy workflow
-that runs on a self-hosted runner inside the target VM.
+Three Ansible playbooks plus the GitHub Actions deploy workflow for a
+container deploy pipeline:
 
-Part of a multi-repo design for proof of concept for CI/CD setup going from code push to running container. Workflow explained in full in [ARCHITECTURE.md](ARCHITECTURE.md).
+- `site.yml` — host config (packages, user, templated config, nginx)
+- `bootstrap-k3s.yml` — installs k3s on a fresh EC2 host
+- `deploy-flaskapp.yml` — pulls and runs the flaskapp container
+
+Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
+
+- [flaskapp-docker-practice](https://github.com/prsmalley/flaskapp-docker-practice)
+  builds and publishes the container image.
+- [terraform-flaskapp-infra](https://github.com/prsmalley/terraform-flaskapp-infra)
+  provisions AWS EC2 infrastructure to deploy to.
+- This repo (ansible-playground) bootstraps the cluster and deploys the app.
 
 ## Repo layout
 
@@ -12,15 +21,16 @@ Part of a multi-repo design for proof of concept for CI/CD setup going from code
 .
 ├── ansible.cfg                 # Ansible defaults
 ├── inventory.ini.example       # Copy to inventory.ini and edit
-├── inventory-runner.ini        # Used by the deploy workflow (localhost target)
+├── inventory-runner.ini        # Used by the legacy Multipass deploy workflow
 ├── requirements.yml            # Ansible collections (community.docker)
 ├── site.yml                    # Host config playbook
-├── deploy-flaskapp.yml         # Flask container deploy playbook
+├── bootstrap-k3s.yml           # k3s install playbook (one-time per cluster)
+├── deploy-flaskapp.yml         # Container deploy playbook
 ├── templates/
 │   └── config.yml.j2           # Used by site.yml
 ├── .github/workflows/
 │   ├── lint.yml                # ansible-lint on every PR
-│   └── deploy.yml              # Manual-trigger deploy via self-hosted runner
+│   └── deploy.yml              # Triggers ARC ephemeral runners
 └── ARCHITECTURE.md             # Multi-repo design and future work
 ```
 
@@ -44,46 +54,57 @@ ansible-playbook site.yml --check   # dry run
 ansible-playbook site.yml           # real run
 ```
 
-`site.yml` installs packages, creates a user, drops a templated config file,
-and ensures nginx is running. Re-running on an unchanged host does nothing (idempotent).
+`site.yml` installs packages, creates a user, drops a templated config
+file, and ensures nginx is running. Re-running on an unchanged host
+does nothing (idempotent).
 
-The `--check` dry run may show errors. Some tasks depend on earlier ones
-(e.g. setting ownership on a directory needs the user from the previous
-task), and `--check` doesn't actually create anything. The real run handles
-this fine.
+## Bootstrapping k3s (`bootstrap-k3s.yml`)
+
+One-time setup against a fresh EC2 instance provisioned by
+[terraform-flaskapp-infra](https://github.com/prsmalley/terraform-flaskapp-infra).
+
+```bash
+# After terraform apply, with the EC2 IP in inventory.ini under [appservers]
+ansible-playbook bootstrap-k3s.yml
+```
+
+Installs k3s, sets up `~/.kube/config` for the `ubuntu` user, and configures
+TLS SANs so remote `kubectl` from your laptop works.
+
+After bootstrap: install ARC via Helm directly on the cluster (manual
+one-time step). See [ARCHITECTURE.md](ARCHITECTURE.md) for the full
+sequence.
 
 ## Deploying flaskapp-docker-practice (`deploy-flaskapp.yml`)
 
 Pulls a container image from
 [flaskapp-docker-practice](https://github.com/prsmalley/flaskapp-docker-practice)'s
-GHCR and runs it on a target host.
+GHCR and runs it.
 
 ### Run locally
 
 ```bash
 ansible-playbook deploy-flaskapp.yml \
   -e "ghcr_token=YOUR_PAT" \
-  -e "image_tag=latest"
+  -e "image_tag=latest" \
+  -e "app_port=80"
 ```
 
 The PAT needs `read:packages` scope.
 
 ### Run via GitHub Actions
 
-`.github/workflows/deploy.yml` triggers on `workflow_dispatch` (manual execution) with inputs for image tag (defaults to latest) and dry run toggle. The job
-runs on a self-hosted runner inside the target VM, so it reaches the host
-as `localhost` without any inbound network access.
-
-Trigger from the CLI:
+`.github/workflows/deploy.yml` triggers on `workflow_dispatch` with inputs
+for image tag and dry-run toggle. Jobs run on `arc-runner-set` — ephemeral
+GitHub Actions runner pods spawned by ARC inside the k3s cluster.
 
 ```bash
 gh workflow run deploy.yml -f image_tag=sha-abc1234 -f dry_run=false
 ```
 
-Or from the Actions tab in the GitHub UI.
-
-The token is stored as the `GHCR_DEPLOY_TOKEN` repository secret. See
-[ARCHITECTURE.md](ARCHITECTURE.md) for the full multi-repo design.
+The `GHCR_DEPLOY_TOKEN` secret holds the PAT. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the full design and known
+limitations.
 
 ## Linting
 
