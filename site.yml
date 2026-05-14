@@ -1,4 +1,16 @@
 ---
+# DEMONSTRATIVE playbook — not part of the active deploy chain.
+# Relic from learning ansible. This configured my multipass vm.
+# No longer useful in k3s cluster.
+# Active deploy chain:
+#   1. terraform apply           (terraform-flaskapp-infra)
+#   2. ansible-playbook bootstrap-k3s.yml
+#   3. -to be added-  kubectl apply against the cluster
+#
+# Kept as a more elaborate Ansible example (templates, handlers,
+# multi-module orchestration). See ARCHITECTURE.md for context.
+
+
 - name: Configure devbox
   hosts: devboxes
   become: true
