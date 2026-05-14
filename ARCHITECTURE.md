@@ -12,7 +12,7 @@ provisioned by ARC.
   — the infrastructure. Terraform provisioning AWS EC2, security groups,
   key pairs.
 - **[ansible-playground](https://github.com/prsmalley/ansible-playground)**
-  (this repo) — the bootstrap + deploy. Host config, k3s install, ARC
+  (this repo) — the bootstrap + deploy.  k3s install, ARC
   setup, container deploy.
 
 ## Why three repos
@@ -113,7 +113,7 @@ ansible-playground pulls images from flaskapp-docker-practice's GHCR
 namespace; `GITHUB_TOKEN` is per-repo, so we use a classic PAT with
 `read:packages` scope.
 
-## Known limitations and Day 7+ work
+## Known limitations and next steps
 
 **The ephemeral runner architecture is proven, but the current `deploy.yml`
 playbook can't fully execute inside a runner pod.** The runner image is
@@ -127,10 +127,9 @@ minimal — no Ansible binary, no SSH keys, no Docker. Two paths to fix:
    cluster.** The flaskapp runs as a k8s Deployment inside the cluster;
    the runner uses `kubectl` to apply manifests. No SSH, no separate
    deploy target — the cluster is both the runner host and the
-   workload host. **This is the more idiomatic Kubernetes answer** and
-   what a fresh-project design would do.
+   workload host.
 
-Path 2 is the recommended next step.
+Path 2 is the planned next step as it matches real production patterns.
 
 ## What a production version would add
 
@@ -150,7 +149,7 @@ Path 2 is the recommended next step.
 
 ### Deploy
 
-- **Refactor to kubectl-apply pattern** (see "Day 7+ work" above).
+- **Refactor to kubectl-apply pattern** (see "next steps" above).
 - **Blue/green or canary** for safer rollouts.
 - **Smoke tests beyond `/health`.** Real endpoints with real payloads.
 - **SHA-only deploys in production.** Block `latest` as a production
