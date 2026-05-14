@@ -1,11 +1,11 @@
 # ansible-playground
 
-Three Ansible playbooks plus the GitHub Actions deploy workflow for a
-container deploy pipeline:
+Two active Ansible playbooks plus a legacy one, plus the GitHub Actions
+deploy workflow:
 
-- `site.yml` — host config (packages, user, templated config, nginx)
 - `bootstrap-k3s.yml` — installs k3s on a fresh EC2 host
 - `deploy-flaskapp.yml` — pulls and runs the flaskapp container
+- `site.yml` — relic from learning Ansible. See Legacy below.
 
 Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
 
@@ -23,9 +23,9 @@ Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
 ├── inventory.ini.example       # Copy to inventory.ini and edit
 ├── inventory-runner.ini        # Used by the legacy Multipass deploy workflow
 ├── requirements.yml            # Ansible collections (community.docker)
-├── site.yml                    # Host config playbook
 ├── bootstrap-k3s.yml           # k3s install playbook (one-time per cluster)
 ├── deploy-flaskapp.yml         # Container deploy playbook
+├── site.yml                    # Legacy — learning artifact, not deployed
 ├── templates/
 │   └── config.yml.j2           # Used by site.yml
 ├── .github/workflows/
@@ -40,28 +40,23 @@ Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
 - A target Ubuntu host reachable over SSH.
 - A user on the target with sudo (the playbooks use `become`).
 
-## Host config (`site.yml`)
+## Legacy: `site.yml`
 
-```bash
-git clone git@github.com:prsmalley/ansible-playground.git
-cd ansible-playground
+Relic from learning Ansible. Configured my Multipass VM with packages,
+a user, a templated config, and nginx. Not part of the active deploy
+chain — `bootstrap-k3s.yml` and `deploy-flaskapp.yml` are the live
+playbooks.
 
-cp inventory.ini.example inventory.ini
-# Edit inventory.ini to point at your host
+Kept as a more elaborate Ansible example (templates, handlers,
+multi-module orchestration). See [ARCHITECTURE.md](ARCHITECTURE.md)
+for context.
 
-ansible devboxes -m ping            # smoke test
-ansible-playbook site.yml --check   # dry run
-ansible-playbook site.yml           # real run
-```
-
-`site.yml` installs packages, creates a user, drops a templated config
-file, and ensures nginx is running. Re-running on an unchanged host
-does nothing (idempotent).
+Runs the same way — `ansible-playbook site.yml`
 
 ## Bootstrapping k3s (`bootstrap-k3s.yml`)
 
 One-time setup against a fresh EC2 instance provisioned by
-[terraform-flaskapp-infra](https://github.com/prsmalley/terraform-flaskapp-infra).
+[terraform-flaskapp-infra](https://github.com/prsmalley/terraform-flaskapp-infra). Be sure to add EC2 IP to inventory.ini.
 
 ```bash
 # After terraform apply, with the EC2 IP in inventory.ini under [appservers]
