@@ -9,7 +9,7 @@ on:
         default: "latest"
         type: string
       dry_run:
-        description: "If true, run with --check"
+        description: "If true, run kubectl with --dry-run=client"
         required: false
         default: false
         type: boolean
@@ -20,15 +20,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Ansible deploy
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Substitute image tag in deployment manifest
         run: |
-          EXTRA_FLAGS=""
+          sed -i "s|:latest|:${{ inputs.image_tag }}|g" manifests/deployment.yaml
+          echo "Deploying image:"
+          grep "image:" manifests/deployment.yaml
+
+      - name: Apply manifests
+        run: |
+          FLAGS=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            EXTRA_FLAGS="--check"
+            FLAGS="--dry-run=client"
           fi
-          ansible-playbook \
-            -i inventory-runner.ini \
-            deploy-flaskapp.yml \
-            -e "ghcr_token=${{ secrets.GHCR_DEPLOY_TOKEN }}" \
-            -e "image_tag=${{ inputs.image_tag }}" \
-            $EXTRA_FLAGS
+          kubectl apply -f manifests/ $FLAGS
+
+
+      - name: Wait for rollout
+        if: ${{ inputs.dry_run != 'true' }}
+        run: kubectl rollout status deployment/flaskapp -n flaskapp --timeout=120s
+
+
+      - name: Show deployed pods
+        if: ${{ inputs.dry_run != 'true' }}
+        run: kubectl get pods -n flaskapp -o wide
