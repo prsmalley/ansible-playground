@@ -1,11 +1,8 @@
 # ansible-playground
 
-Two active Ansible playbooks plus a legacy one, plus the GitHub Actions
-deploy workflow:
-
-- `bootstrap-k3s.yml` — installs k3s on a fresh EC2 host
-- `deploy-flaskapp.yml` — pulls and runs the flaskapp container
-- `site.yml` — relic from learning Ansible. See Legacy below.
+One active Ansible playbook (`bootstrap-k3s.yml`) plus K8s manifests
+(`manifests/`) deployed via GitHub Actions. Two archived playbooks
+in `legacy/`.
 
 Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
 
@@ -20,18 +17,23 @@ Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
 ```
 .
 ├── ansible.cfg                 # Ansible defaults
-├── inventory.ini.example       # Copy to inventory.ini and edit
-├── inventory-runner.ini        # Used by the legacy Multipass deploy workflow
-├── requirements.yml            # Ansible collections (community.docker)
+├── inventory.ini.example       # Copy to inventory.ini for bootstrap
+├── requirements.yml            # Ansible collections (community.docker — used by legacy/)
 ├── bootstrap-k3s.yml           # k3s install playbook (one-time per cluster)
-├── deploy-flaskapp.yml         # Container deploy playbook
-├── site.yml                    # Legacy — learning artifact, not deployed
-├── templates/
-│   └── config.yml.j2           # Used by site.yml
+├── manifests/                  # K8s manifests (Deployment, Service, Ingress)
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── ingress.yaml
+├── legacy/                     # Archived from earlier architecture
+│   ├── site.yml                # Multipass host config (Day 3 learning artifact)
+│   ├── deploy-flaskapp.yml     # Ansible-based deploy (replaced by K8s)
+│   ├── inventory-runner.ini    # Used by old workflow (when runner = target)
+│   └── templates/
+│       └── config.yml.j2
 ├── .github/workflows/
 │   ├── lint.yml                # ansible-lint on every PR
-│   └── deploy.yml              # Triggers ARC ephemeral runners
-└── ARCHITECTURE.md             # Multi-repo design and future work
+│   └── deploy.yml              # ARC ephemeral runner runs kubectl apply
+└── ARCHITECTURE.md
 ```
 
 ## Prerequisites
@@ -40,18 +42,20 @@ Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
 - A target Ubuntu host reachable over SSH.
 - A user on the target with sudo (the playbooks use `become`).
 
-## Legacy: `site.yml`
+## Legacy (`legacy/`)
 
-Relic from learning Ansible. Configured my Multipass VM with packages,
-a user, a templated config, and nginx. Not part of the active deploy
-chain — `bootstrap-k3s.yml` and `deploy-flaskapp.yml` are the live
-playbooks.
+Three archived files from earlier architecture iterations. Kept for
+portfolio depth and as Ansible examples; not part of the active deploy.
 
-Kept as a more elaborate Ansible example (templates, handlers,
-multi-module orchestration). See [ARCHITECTURE.md](ARCHITECTURE.md)
-for context.
-
-Runs the same way — `ansible-playbook site.yml`
+- `site.yml` — relic from learning Ansible. Configured my Multipass VM
+  with packages, a user, a templated config, and nginx. Demonstrates
+  templates, handlers, and multi-module orchestration.
+- `deploy-flaskapp.yml` — Ansible-based deploy that pulled the flaskapp
+  image and ran it via Docker on a single host. Replaced by the K8s
+  deploy (`manifests/` + `kubectl apply`). Demonstrates the
+  `community.docker` collection.
+- `inventory-runner.ini` — inventory used by the old `deploy.yml`
+  workflow when the runner was the deploy target (Multipass VM era).
 
 ## Bootstrapping k3s (`bootstrap-k3s.yml`)
 
@@ -70,22 +74,6 @@ After bootstrap: install ARC via Helm directly on the cluster (manual
 one-time step). See [ARCHITECTURE.md](ARCHITECTURE.md) for the full
 sequence.
 
-## Deploying flaskapp-docker-practice (`deploy-flaskapp.yml`)
-
-Pulls a container image from
-[flaskapp-docker-practice](https://github.com/prsmalley/flaskapp-docker-practice)'s
-GHCR and runs it.
-
-### Run locally
-
-```bash
-ansible-playbook deploy-flaskapp.yml \
-  -e "ghcr_token=YOUR_PAT" \
-  -e "image_tag=latest" \
-  -e "app_port=80"
-```
-
-The PAT needs `read:packages` scope.
 
 ### Run via GitHub Actions
 
