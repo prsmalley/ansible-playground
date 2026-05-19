@@ -1,4 +1,15 @@
 ---
+
+# Archived from active deploy chain.
+# This playbook deployed the flaskapp container via Docker on a single host
+# (Multipass VM). Replaced by Kubernetes deploy via manifests/ + kubectl
+# in the active deploy.yml workflow.
+#
+# Kept as an example of the community.docker collection (docker_login,
+# docker_image, docker_container, docker_container_info) and Ansible's
+# uri module with retries for health checking.
+
+
 - name: Deploy flaskapp container
   hosts: appservers
   become: true
