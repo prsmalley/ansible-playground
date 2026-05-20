@@ -1,8 +1,8 @@
 # ansible-playground
 
 One active Ansible playbook (`bootstrap-k3s.yml`) plus K8s manifests
-(`manifests/`) deployed via GitHub Actions on **ephemeral self-hosted
-runners managed by ARC**. Two archived playbooks in `legacy/`.
+(`manifests/`) deployed via GitHub Actions on ephemeral self-hosted
+runners managed by ARC. Two archived playbooks in `legacy/`.
 
 Part of a three-repo CI/CD/CD design — see [ARCHITECTURE.md](ARCHITECTURE.md):
 
