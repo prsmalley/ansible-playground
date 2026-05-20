@@ -1,0 +1,41 @@
+---
+# ServiceAccount the runner pods will use for deploys
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deploy-runner
+  namespace: arc-runners
+
+---
+# Role granting permissions in the flaskapp namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: flaskapp-deployer
+  namespace: flaskapp
+rules:
+  - apiGroups: [""]
+    resources: ["services", "secrets", "configmaps", "pods"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+---
+# Bind the SA (in arc-runners) to the Role (in flaskapp)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deploy-runner-flaskapp
+  namespace: flaskapp
+subjects:
+  - kind: ServiceAccount
+    name: deploy-runner
+    namespace: arc-runners
+roleRef:
+  kind: Role
+  name: flaskapp-deployer
+  apiGroup: rbac.authorization.k8s.io
