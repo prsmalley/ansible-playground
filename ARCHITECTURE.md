@@ -104,6 +104,18 @@ single EC2 instance. Production would use EKS for managed control plane,
 multi-AZ, IAM integration. k3s gives the same `kubectl` surface for a
 fraction of the cost.
 
+**Cloudflare Tunnel over ALB for public access.** The flaskapp is reachable
+via Cloudflare Tunnel rather than an AWS ALB. For a single-instance
+deploy, both terminate TLS and provide a public URL with equivalent
+end-user UX. Cloudflare wins on three dimensions for this scope: cost
+(~$10/yr domain only vs ~$200/yr for an ALB), security posture (no
+inbound SG ports — cloudflared dials outbound, so the SG never accepts
+inbound from anything except the operator IP), and operational simplicity
+(no cert or DNS Terraform required — Cloudflare handles TLS termination
+and DNS automatically). ALB becomes the right answer when load-balancing
+across multiple instances, putting compute in private subnets, or in
+environments mandating AWS-only networking — none of which apply here.
+
 **Ephemeral self-hosted runners via ARC.** Runners are Kubernetes pods,
 spawned on demand and destroyed after each job. No long-lived runners, no
 idle resources. Authentication via a GitHub App with fine-grained per-repo
@@ -142,7 +154,9 @@ App).
   public subnet.
 - **IAM Role attached to the instance.** No static AWS credentials on the
   host.
-- **ALB + ACM cert + Route 53.** HTTPS on a real domain.
+- **ALB + ACM cert + Route 53.** AWS-native alternative to the current
+  Cloudflare Tunnel setup. Required for environments mandating AWS-only
+  networking; otherwise overkill for single-instance deploys.
 - **Bastion + AWS Session Manager** instead of inbound SSH.
 - **Packer-baked AMI** with k3s pre-installed, eliminating the manual
   Ansible bootstrap step.
