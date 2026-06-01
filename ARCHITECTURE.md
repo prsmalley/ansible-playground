@@ -63,6 +63,20 @@ ansible-playground — per-release deploy
        k3s reconciles: flaskapp pods come up in flaskapp namespace
                 ↓
        Pod terminates after kubectl rollout status returns
+
+public access (Cloudflare Tunnel)
+  user → https://flaskapp.prsmalley.dev
+                ↓
+       Cloudflare edge (terminates HTTPS)
+                ↓
+       cloudflared on the EC2 (outbound tunnel — no inbound ports)
+                ↓
+       Traefik → flaskapp Service → pods
+
+monitoring (monitoring namespace)
+  Prometheus scrapes flaskapp /metrics every 30s
+                ↓
+  Grafana reads Prometheus, charts it at https://grafana.prsmalley.dev
 ```
 
 ## Step by step
@@ -127,11 +141,22 @@ the same cluster it lives in. No SSH out to a separate target; no separate
 deploy host. Eliminates the runner-vs-target distinction the previous
 Ansible-over-SSH deploy had.
 
-**Bootstrap state vs. deploy state — separated directories.** `setup/`
-holds one-time cluster bootstrap (RBAC). `manifests/` holds per-deploy
-state (Deployment, Service, Ingress). The workflow only re-applies
-`manifests/`; never touches `setup/`. Prevents a `kubectl delete -f` of
-the deploy state from cascading to the bootstrap state.
+**Bootstrap state vs. deploy state — separated directories.** Files are
+split by how often they're applied, not by type. `setup/` holds one-time
+cluster RBAC; `monitoring/` holds the one-time Prometheus + Grafana stack;
+`manifests/` holds per-deploy state (Deployment, Service, Ingress). The
+workflow only re-applies `manifests/`; it never touches `setup/` or
+`monitoring/`. Prevents a `kubectl delete -f` of the deploy state from
+cascading into the RBAC or the monitoring stack.
+
+**Manual Prometheus + Grafana over kube-prometheus-stack.** Monitoring is
+hand-written manifests (a Deployment, ConfigMap, and Service each) rather
+than the all-in-one Helm chart. Two reasons: it keeps the memory footprint
+small enough for a single t3.small, and writing the scrape config by hand
+makes the moving parts visible. Production would use kube-prometheus-stack,
+where an operator discovers scrape targets automatically by label. Metrics
+storage here is in-pod and not persisted — a restart loses history, which
+is fine for a demo but a PersistentVolume in production.
 
 **GitHub App for ARC auth.** Fine-grained per-repo permissions and
 auto-rotating short-lived tokens. Better than a PAT for both security and

@@ -3,7 +3,7 @@
 [![Lint](https://github.com/prsmalley/ansible-playground/actions/workflows/lint.yml/badge.svg)](https://github.com/prsmalley/ansible-playground/actions/workflows/lint.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status:** **Live at https://flaskapp.prsmalley.dev/health** — flaskapp is served via a Cloudflare Tunnel running on the EC2 (provisioned by [terraform-flaskapp-infra](https://github.com/prsmalley/terraform-flaskapp-infra)). The cluster itself stays SG-restricted to the operator IP.
+**Status:** **Live at https://flaskapp.prsmalley.dev/health** — flaskapp is served via a Cloudflare Tunnel running on the EC2 (provisioned by [terraform-flaskapp-infra](https://github.com/prsmalley/terraform-flaskapp-infra)). A Grafana dashboard of app metrics is live at https://grafana.prsmalley.dev. The cluster itself stays SG-restricted to the operator IP.
 
 This repo owns cluster bootstrap and per-release deploys: it installs k3s on a fresh EC2 host and ships Kubernetes manifests to the cluster via an ephemeral self-hosted GitHub Actions runner (ARC). It's one of three repos that together build, provision, and deploy a Flask app to a k3s cluster on AWS EC2:
 
@@ -41,6 +41,9 @@ flowchart LR
 │   └── ingress.yaml
 ├── setup/                      # One-time cluster bootstrap (not redeployed)
 │   └── rbac.yaml               # ServiceAccount + Role + RoleBinding for deploy-runner
+├── monitoring/                 # Prometheus + Grafana (applied once, not per deploy)
+│   ├── prometheus.yaml
+│   └── grafana.yaml
 ├── legacy/                     # Archived from earlier architecture iterations
 ├── .github/workflows/
 │   ├── lint.yml                # ansible-lint on every PR
@@ -73,6 +76,12 @@ What happens when you trigger it:
 ## Initial cluster setup
 
 One-time procedure for spinning up a new cluster from scratch. See [BOOTSTRAP.md](BOOTSTRAP.md) for the full operator runbook (~30 minutes end to end, assuming AWS / GitHub / SSH credentials are already in place). After bootstrap, deploys are workflow-triggered as above.
+
+## Monitoring
+
+The cluster runs Prometheus (collects metrics) and Grafana (charts them), both in the `monitoring` namespace. The app exposes a `/metrics` endpoint, Prometheus scrapes it every 30 seconds, and Grafana reads from Prometheus and serves a dashboard at https://grafana.prsmalley.dev.
+
+These live in `monitoring/` rather than `manifests/` on purpose: they're set up once when the cluster is built, not re-applied on every app deploy. Install steps are in [BOOTSTRAP.md](BOOTSTRAP.md).
 
 ## Linting
 
