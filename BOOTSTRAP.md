@@ -13,6 +13,16 @@ Total time: ~30 minutes, assuming AWS, GitHub, and SSH credentials are already i
 - A GitHub Personal Access Token (classic) with `read:packages` scope for pulling the container image from GHCR. Create one at https://github.com/settings/tokens.
 - Permission to create a GitHub App on the account that owns this repo.
 
+## How the manifests are organized
+
+The repo splits Kubernetes files by how often they're applied, not by type:
+
+- `manifests/` — the app (Deployment, Service, Ingress). Re-applied on every deploy.
+- `setup/` — cluster RBAC. Applied once here, never touched by deploys.
+- `monitoring/` — Prometheus + Grafana. Applied once here, never touched by deploys.
+
+Keeping them apart means an app deploy can't accidentally change or delete the RBAC or the monitoring stack.
+
 ## Steps
 
 ### 1. Provision the EC2
@@ -137,4 +147,68 @@ kubectl auth can-i create deployments -n flaskapp \
 # Expected: yes
 ```
 
-Cluster is ready. Deploys from here on are workflow-triggered — see [README.md](README.md).
+The core cluster is ready. Deploys from here on are workflow-triggered — see [README.md](README.md). The two steps below add public access and monitoring.
+
+### 11. Make the app reachable from the internet (Cloudflare Tunnel)
+
+The cluster is private — the security group only allows your IP. Cloudflare Tunnel exposes the app over HTTPS without opening any inbound ports: a small agent (`cloudflared`) on the EC2 dials out to Cloudflare, and traffic returns down that connection.
+
+On the EC2:
+
+```bash
+cloudflared tunnel login                     # authorize in the browser; writes cert.pem
+cloudflared tunnel create flaskapp            # creates the tunnel + a credentials file
+cloudflared tunnel route dns flaskapp flaskapp.prsmalley.dev
+```
+
+Create `~/.cloudflared/config.yml` (use the UUID printed by `tunnel create`):
+
+```yaml
+tunnel: <TUNNEL_UUID>
+credentials-file: /home/ubuntu/.cloudflared/<TUNNEL_UUID>.json
+ingress:
+  - hostname: flaskapp.prsmalley.dev
+    service: http://localhost:80     # hands traffic to Traefik, which routes by hostname
+  - service: http_status:404         # anything else gets a 404; must stay last
+```
+
+Install it as a service and start it:
+
+```bash
+sudo cloudflared --config /home/ubuntu/.cloudflared/config.yml service install
+sudo systemctl restart cloudflared
+```
+
+Check: `curl https://flaskapp.prsmalley.dev/health` returns `{"status":"ok"}`.
+
+### 12. Install the monitoring stack
+
+Prometheus collects metrics from the app; Grafana charts them.
+
+```bash
+kubectl create namespace monitoring
+
+# Grafana admin password — pick your own, keep it out of git
+kubectl create secret generic grafana-admin \
+  --namespace=monitoring \
+  --from-literal=password='<strong-password>'
+
+kubectl apply -f monitoring/
+```
+
+Add a Grafana route to the tunnel. Append this to the `ingress:` list in `~/.cloudflared/config.yml`, **before** the `http_status:404` line:
+
+```yaml
+  - hostname: grafana.prsmalley.dev
+    service: http://localhost:80
+```
+
+Then register the DNS route, sync the config the service uses, and restart:
+
+```bash
+cloudflared tunnel route dns flaskapp grafana.prsmalley.dev
+sudo cp ~/.cloudflared/config.yml /etc/cloudflared/config.yml
+sudo systemctl restart cloudflared
+```
+
+Grafana is then at https://grafana.prsmalley.dev (log in as `admin`). The Prometheus data source is wired up automatically; build the dashboard in the Grafana UI.
