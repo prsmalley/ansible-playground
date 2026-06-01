@@ -6,7 +6,8 @@ metadata:
   namespace: flaskapp
 spec:
   rules:
-    - http:
+    - host: flaskapp.prsmalley.dev
+      http:
         paths:
           - path: /
             pathType: Prefix
