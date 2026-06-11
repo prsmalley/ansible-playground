@@ -10,6 +10,9 @@ data:
     datasources:
       - name: Prometheus
         type: prometheus
+        # Stable uid: the provisioned dashboard JSON references the datasource
+        # by uid, and an auto-generated uid changes on every pod restart.
+        uid: prometheus
         access: proxy
         url: http://prometheus.monitoring.svc.cluster.local:9090
         isDefault: true
@@ -45,6 +48,10 @@ spec:
           volumeMounts:
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
             - name: storage
               mountPath: /var/lib/grafana
           resources:
@@ -58,6 +65,12 @@ spec:
         - name: datasources
           configMap:
             name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
         - name: storage
           emptyDir: {}
 ---
