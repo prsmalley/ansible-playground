@@ -1,5 +1,4 @@
 ---
-# yamllint disable rule:line-length  -- inlined dashboard JSON has long expr strings
 # Dashboard-as-code: Grafana loads everything below on startup, so dashboards
 # survive pod evictions (the hand-built one did not — 2026-06-11).
 # Source of truth: monitoring/dashboards/flaskapp.json. After editing it,

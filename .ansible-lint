@@ -4,3 +4,5 @@ profile: production
 exclude_paths:
   - .ansible/
   - .github/
+  - monitoring/grafana-dashboards.yaml  # generated: inlined dashboard JSON
+  - monitoring/dashboards/  # raw Grafana dashboard exports, not Ansible YAML
